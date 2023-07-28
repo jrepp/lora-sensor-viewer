@@ -26,13 +26,16 @@ DEVICES = {
 }
 
 st.title('Sensor POC')
+
+
 @st.cache_data
-def load_data():
-    results = ttn_storage_api.sensor_pull_storage(APP, KEY, '24h', ttn_version=3)
-    print(results)
+def load_data(window):
+    results = ttn_storage_api.sensor_pull_storage(APP, KEY, window, ttn_version=3)
     by_id = dict()
     for r in results:
-        result_frag = r['result']
+        result_frag = r.get('result')
+        if result_frag is None:
+            raise Exception(f"Unexpected result {r}")
         timestamp = dateutil.parser.isoparse(result_frag['uplink_message']['received_at'])
         local_time = timestamp.astimezone(pytz.timezone("US/Pacific"))
         decoded_frag = result_frag['uplink_message']['decoded_payload']
@@ -47,14 +50,11 @@ def load_data():
         key = f"{DEVICES[id]} ({id})"
         values = by_id.setdefault(key, list())
         values.append((local_time, battery_mv, temp_c, humidity_pct))
-    for key, values in by_id.items():
-        print(f"{key}")
-        print(f"{sorted(values)}")
     return by_id
 
 
 text_status = st.text('Loading data...')
-by_id_data = load_data()
+by_id_data = load_data(st.selectbox('Select time window', ['24h', '48h', '72h']))
 text_status.text('Data loaded')
 
 
