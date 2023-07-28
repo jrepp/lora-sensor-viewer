@@ -7,8 +7,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-APP = ''
-KEY = ''
+APP = st.secrets.ttn.app_name
+KEY = st.secrets.ttn.api_key
 WINDOW = '24h'
 
 DEVICES = {
