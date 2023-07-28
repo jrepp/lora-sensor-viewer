@@ -6,6 +6,7 @@ import dateutil.parser
 import streamlit as st
 import pandas as pd
 import numpy as np
+import pytz
 
 APP = st.secrets.ttn.app_name
 KEY = st.secrets.ttn.api_key
@@ -27,14 +28,17 @@ DEVICES = {
 st.title('Sensor POC')
 @st.cache_data
 def load_data():
-    results = ttn_storage_api.sensor_pull_storage(APP, KEY, WINDOW, ttn_version=3)
+    results = ttn_storage_api.sensor_pull_storage(APP, KEY, '24h', ttn_version=3)
     print(results)
     by_id = dict()
     for r in results:
         result_frag = r['result']
         timestamp = dateutil.parser.isoparse(result_frag['uplink_message']['received_at'])
+        local_time = timestamp.astimezone(pytz.timezone("US/Pacific"))
         decoded_frag = result_frag['uplink_message']['decoded_payload']
         temp_c = decoded_frag['temp_c']
+        if temp_c & 0x8000:
+            temp_c = -0x10000 + temp_c
         humidity_pct = decoded_frag['humidity_pct']
         battery_mv = decoded_frag['battery_mv']
         if not temp_c:
@@ -42,7 +46,7 @@ def load_data():
         id = result_frag['end_device_ids']['device_id']
         key = f"{DEVICES[id]} ({id})"
         values = by_id.setdefault(key, list())
-        values.append((timestamp, battery_mv, temp_c, humidity_pct))
+        values.append((local_time, battery_mv, temp_c, humidity_pct))
     for key, values in by_id.items():
         print(f"{key}")
         print(f"{sorted(values)}")
@@ -57,11 +61,11 @@ text_status.text('Data loaded')
 
 for key, values in by_id_data.items():
     st.subheader(f"{key}")
-    st.text(f"Date range: {values[0][0]}-{values[-1][0]}")
+    st.text(f"Date range: {values[0][0]} to {values[-1][0]}")
     chart_data = pd.DataFrame(values, columns=['datetime', 'battery_mv', 'temp_c', 'humidity_pct'])
     #st.write(chart_data)
-    temp, hum, bat = st.tabs(['Temp (C)', 'Humidity%', 'Battery(mv)'])
+    temp, hum, bat, data = st.tabs(['Temp (C)', 'Humidity%', 'Battery(mv)', 'Data'])
     bat.line_chart(x='datetime', y='battery_mv', data=chart_data)
     temp.line_chart(x='datetime', y='temp_c', data=chart_data)
     hum.line_chart(x='datetime', y='humidity_pct', data=chart_data)
-
+    data.write(chart_data)
