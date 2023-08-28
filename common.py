@@ -26,7 +26,7 @@ def load_data_by_device_id(app_name, api_key, window):
         if not temp_c:
             continue
         id = result_frag['end_device_ids']['device_id']
-        key = f"{DEVICES[id]} ({id})"
+        key = f"{DEVICES.get(id)} ({id})"
         values = by_id.setdefault(key, list())
         values.append((local_time, battery_mv, temp_c, humidity_pct))
     return by_id
